@@ -1,0 +1,26 @@
+[package]
+name = "solana-program-analyzer"
+description = "analyzer for solana programs"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "solana-program-analyzer"
+path = "src/main.rs"
+
+[[bin]]
+name = "solana-metadata-extractor"
+path = "bin/solana_metadata_extractor.rs"
+
+[dependencies]
+petgraph = "0.8.2"
+regex = "1.11.1"
+tracing = "0.1.41"
+serde = { version = "1.0", features = ["derive"] }
+toml = "0.8"
+thiserror = "2.0.12"
+
+[package.metadata.rust-analyzer]
+# This crate uses #[feature(rustc_private)].
+# See https://github.com/rust-analyzer/rust-analyzer/pull/7891
+rustc_private = true
