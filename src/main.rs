@@ -36,6 +36,10 @@ fn main() -> ExitCode {
 
 fn solana_program_analyzer<'tcx>(_tcx: TyCtxt<'tcx>) -> ControlFlow<()> {
     let crate_name = stable_mir::local_crate().name;
-    stable_mir::all_local_items();
+    println!("{crate_name}");
+    let local_items = stable_mir::all_local_items();
+    for item in local_items {
+        println!("{}", item.trimmed_name());
+    }
     ControlFlow::Continue(())
 }
