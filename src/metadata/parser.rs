@@ -110,12 +110,8 @@ fn extract_version_from_toml_value(value: &Value) -> Option<String> {
     match value {
         Value::String(s) => Some(s.clone()), // Direct version string
         Value::Table(table) => {
-            if let Some(version_value) = table.get("version") {
-                if let Value::String(s) = version_value {
+            if let Some(Value::String(s)) = table.get("version") {
                     Some(s.clone()) // "version" key within a table
-                } else {
-                    None // "version" key exists but is not a string
-                }
             } else {
                 None // No "version" key in the table (e.g., path, git deps)
             }

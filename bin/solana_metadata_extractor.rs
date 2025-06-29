@@ -1,4 +1,6 @@
-use solana_program_analyzer::metadata::{check_program_type, parse_toml_in_crate_path};
+use solana_program_analyzer::metadata::{
+    check_program_type, detect_vulnerable_dep, parse_toml_in_crate_path,
+};
 use std::env;
 
 fn main() {
@@ -6,7 +8,7 @@ fn main() {
     let (crate_name, parsed_dependencies) = parse_toml_in_crate_path(&crate_path_str).unwrap();
     // Print the results.
     println!("\n--- Result ---");
-    println!("Crate name:  {}", crate_name);
+    println!("Crate name:  {crate_name}");
 
     if !parsed_dependencies.is_empty() {
         println!("\n--- Dependencies ---");
@@ -16,8 +18,14 @@ fn main() {
                 None => println!("- {}: (version not specified or complex)", dep.name),
             }
         }
+
+        println!("\n--- Vulnerable Deps ---");
+        let report = detect_vulnerable_dep(&parsed_dependencies);
+        if let Some(report) = report {
+            println!("{report}");
+        }
     }
     println!("--------------");
     let program_type = check_program_type(&parsed_dependencies);
-    println!("The type of the program is {:?}", program_type);
+    println!("The type of the program is {program_type:?}");
 }
