@@ -103,5 +103,6 @@ fn solana_program_analyzer<'tcx>(tcx: TyCtxt<'tcx>) -> ControlFlow<()> {
             _ => {}
         }
     }
+
     ControlFlow::Continue(())
 }
