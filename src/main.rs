@@ -27,6 +27,8 @@ use std::io::stdout;
 use std::ops::ControlFlow;
 use std::process::ExitCode;
 
+use crate::analysis::account::local_anchor_accounts;
+
 pub mod analysis;
 
 fn main() -> ExitCode {
@@ -103,6 +105,12 @@ fn solana_program_analyzer<'tcx>(tcx: TyCtxt<'tcx>) -> ControlFlow<()> {
             _ => {}
         }
     }
-
+    let anchor_accounts_collection = local_anchor_accounts();
+    for anchor_accounts in anchor_accounts_collection {
+        println!("{}", anchor_accounts.name);
+        for (idx, anchor_account) in anchor_accounts.anchor_accounts.iter().enumerate() {
+            println!("- {idx}: {:?}", &anchor_account);
+        }
+    }
     ControlFlow::Continue(())
 }
