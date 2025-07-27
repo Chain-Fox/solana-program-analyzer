@@ -1,4 +1,8 @@
 use stable_mir::{
+    mir::{
+        mono::Instance, ConstOperand, Operand, Place, ProjectionElem, Rvalue, StatementKind,
+        TerminatorKind,
+    },
     ty::{AdtKind, EarlyBinder, FieldDef, RigidTy, TyKind, VariantDef},
     CrateDef, CrateDefItems, Symbol,
 };
@@ -9,6 +13,7 @@ pub struct AnchorAccounts {
 }
 
 pub const ANCHOR_ACCOUNTS: &str = "anchor_lang::Accounts";
+pub const TO_ACCOUNT_METAS: &str = "to_account_metas";
 
 impl AnchorAccounts {
     pub fn from_variant(variant: VariantDef) -> Option<Self> {
@@ -97,7 +102,7 @@ pub fn local_anchor_accounts() -> Vec<AnchorAccounts> {
     for trait_impl in trait_impls {
         let trait_name = trait_impl.trait_impl().value.def_id.name();
         if trait_name != ANCHOR_ACCOUNTS {
-            continue
+            continue;
         }
         let self_ty = trait_impl.trait_impl().value.self_ty();
         match self_ty.kind().rigid() {
@@ -108,7 +113,6 @@ pub fn local_anchor_accounts() -> Vec<AnchorAccounts> {
                     match item.kind {
                         stable_mir::ty::AssocKind::Fn { name, has_self } => {
                             if name == "try_accounts" && !has_self {
-                                // println!("{:?}", trait_impl.trait_impl());
                                 if let Some(variant) = adt_def.variants_iter().next() {
                                     if let Some(anchor_accounts) =
                                         AnchorAccounts::from_variant(variant)
@@ -126,4 +130,126 @@ pub fn local_anchor_accounts() -> Vec<AnchorAccounts> {
         }
     }
     anchor_accounts_collection
+}
+
+pub fn find_to_account_metas() -> Vec<(String, &'static str, usize)> {
+    let mut to_account_metas = vec![];
+    let items = stable_mir::all_local_items();
+    for item in items {
+        let name = item.name();
+        if !name.contains(TO_ACCOUNT_METAS) {
+            continue;
+        }
+        if !name.contains(&"__client_accounts") {
+            continue;
+        }
+        // if name.contains(&"__cpi_client_accounts") {
+        //     continue;
+        // }
+        let instance = match Instance::try_from(item) {
+            Ok(instance) => instance,
+            Err(_) => continue,
+        };
+        to_account_metas.push(instance);
+    }
+    // println!("{:?}", to_account_metas);
+    let mut account_metas = vec![];
+    for to_account_meta in to_account_metas {
+        let body = match to_account_meta.body() {
+            Some(body) => body,
+            None => continue,
+        };
+        let first_arg_ty = match &body.local_decl(1) {
+            // Ty { id: 889, kind: RigidTy(Ref(Region { kind: ReErased }, Ty { id: 891, kind: RigidTy(Adt(AdtDef(DefId { id: 353, name: "distribute::__client_accounts_distribute_rewards::DistributeRewards" }), GenericArgs([]))) }, Not)) }
+            Some(local_decl) => {
+                match local_decl.ty.kind().rigid() {
+                    Some(RigidTy::Ref(region, next_ty, mutability)) => {
+                        // println!("{:?}", next_ty);
+
+                        match next_ty.kind().rigid() {
+                            Some(RigidTy::Adt(adt_def, _)) => {
+                                // println!("{:?}", adt_def.name);
+                                let name = adt_def.name();
+                                let fields = name.split(":");
+                                if let Some(last) = fields.last() {
+                                    last.to_string()
+                                } else {
+                                    continue;
+                                }
+                            }
+                            _ => continue,
+                        }
+                        // next_ty.kind().rigid().unwrap
+                    }
+                    _ => continue,
+                }
+            }
+            None => continue,
+        };
+        println!("{:?}", first_arg_ty);
+        // body.locals[1].ty()
+        for bb in body.blocks {
+            // println!("{:?}", bb.terminator);
+            match bb.terminator.kind {
+                TerminatorKind::Call {
+                    func,
+                    args,
+                    destination,
+                    target,
+                    unwind,
+                } => {
+                    match func {
+                        Operand::Constant(const_operand) => {
+                            // println!("{:?}", const_operand.ty());
+                            // Ty { id: 887, kind: RigidTy(FnDef(FnDef(DefId { id: 355, name: "anchor_lang::prelude::AccountMeta::new" }), GenericArgs([]))) }
+                            if let Some(RigidTy::FnDef(fn_def, _)) =
+                                const_operand.ty().kind().rigid()
+                            {
+                                if fn_def.name() == "anchor_lang::prelude::AccountMeta::new"
+                                    || fn_def.name()
+                                        == "anchor_lang::prelude::AccountMeta::new_readonly"
+                                {
+                                    // println!("{:?}", fn_def);
+                                    match bb.statements.last() {
+                                        Some(statement) => {
+                                            // println!("{:?}", statement);
+                                            match statement.kind {
+                                                // Assign(_7, Use(Copy(((*_1).0: anchor_lang::prelude::Pubkey))))
+                                                StatementKind::Assign(
+                                                    _,
+                                                    Rvalue::Use(Operand::Copy(ref place)),
+                                                ) => {
+                                                    // println!("{place:?}");
+                                                    // check place ty
+                                                    if place.local == 1 {
+                                                        // println!("{:?}", place.projection);
+                                                        if let [ProjectionElem::Deref, ProjectionElem::Field(field_idx, _)] =
+                                                            place.projection[..]
+                                                        {
+                                                            println!("{:?}", field_idx);
+                                                            if fn_def.name() == "anchor_lang::prelude::AccountMeta::new" {
+                                                                account_metas.push((first_arg_ty.clone(), "mut", field_idx));
+                                                            } else {
+                                                                account_metas.push((first_arg_ty.clone(), "immu", field_idx));
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                                _ => {}
+                                            }
+                                        }
+                                        None => {}
+                                    }
+                                }
+                            }
+                        }
+                        _ => {}
+                    }
+                    // anchor_lang::prelude::AccountMeta::new
+                }
+                _ => {}
+            }
+        }
+    }
+    account_metas
 }

@@ -27,7 +27,9 @@ use std::io::stdout;
 use std::ops::ControlFlow;
 use std::process::ExitCode;
 
-use crate::analysis::account::local_anchor_accounts;
+use crate::analysis::account::{
+    find_to_account_metas, local_anchor_accounts, AnchorAccount, AnchorAccountKind,
+};
 
 pub mod analysis;
 
@@ -92,24 +94,86 @@ fn solana_program_analyzer<'tcx>(tcx: TyCtxt<'tcx>) -> ControlFlow<()> {
         &mut transformer,
         &local_reachable,
     );
-    for mono_item in mono_items {
-        match mono_item {
-            MonoItem::Fn(instance) => {
-                let trimmed_name = instance.trimmed_name();
-                if trimmed_name.contains("f32::<impl f32>::round")
-                    || trimmed_name.contains("f64::<impl f64>::round")
-                {
-                    println!("{crate_name} contains f32::round or f64::round");
-                }
-            }
-            _ => {}
-        }
-    }
+    // for mono_item in mono_items {
+    //     match mono_item {
+    //         MonoItem::Fn(instance) => {
+    //             let trimmed_name = instance.trimmed_name();
+    //             if trimmed_name.contains("f32::<impl f32>::round")
+    //                 || trimmed_name.contains("f64::<impl f64>::round")
+    //             {
+    //                 println!("{crate_name} contains f32::round or f64::round");
+    //             }
+    //         }
+    //         _ => {}
+    //     }
+    // }
+
+    //     to_account_metas(_1)
+
+    // _x = ((*_1).0: anchor_lang::prelude::Pubkey);
+    // _x1 = AccountMeta::new(move _11, true/false) -> [return: bb4, unwind: bb6];
+
+    // _y = ((*_1).1: anchor_lang::prelude::Pubkey);
+    // _y1 = AccountMeta::new(move _11, true/false) -> [return: bb4, unwind: bb6];
+
+    // _1.0 data
+    // _1.1 data
+    // for mono_item in mono_items {
+    //     match mono_item {
+    //         MonoItem::Fn(instance) => {
+    //             let trimmed_name = instance.trimmed_name();
+    //             println!("{}", trimmed_name);
+    //             if trimmed_name.contains("to_account_metas")
+    //             {
+    //                 println!("{trimmed_name}");
+    //             }
+    //         }
+    //         _ => {}
+    //     }
+    // }
+
+    let res = find_to_account_metas();
+    // for r in res {
+    //     println!("{:?}", r);
+    // }
+
     let anchor_accounts_collection = local_anchor_accounts();
     for anchor_accounts in anchor_accounts_collection {
         println!("{}", anchor_accounts.name);
+        let mut muts = vec![];
+        for (name, mutability, field_idx) in res.iter() {
+            if name == &anchor_accounts.name {
+                muts.push((field_idx, mutability));
+            }
+        }
+        let mut final_res = vec![];
         for (idx, anchor_account) in anchor_accounts.anchor_accounts.iter().enumerate() {
-            println!("- {idx}: {:?}", &anchor_account);
+            let mut mu = None;
+            for (field_idx, mutability) in muts.iter() {
+                if *field_idx == &idx {
+                    mu = Some(*mutability);
+                    break;
+                }
+            }
+            println!("- {idx}: {:?} {:?}", mu, &anchor_account);
+            final_res.push((anchor_account, mu));
+        }
+
+        let len = final_res.len();
+        for i in 0..len {
+            for j in i + 1..len {
+                if final_res[i].1 == Some(&"mut") && final_res[j].1 == Some(&"mut") {
+                    match (final_res[i].0.kind.clone(), final_res[j].0.kind.clone()) {
+                        (
+                            AnchorAccountKind::Account(i_struct),
+                            AnchorAccountKind::Account(j_struct),
+                        ) if i_struct == j_struct => {
+                            println!("Find error: two mutable accounts of the same type in the same Context: {:?} {:?}", final_res[i], final_res[j]);
+                        }
+                        _ => {}
+                    }
+                }
+            }
         }
     }
     ControlFlow::Continue(())
