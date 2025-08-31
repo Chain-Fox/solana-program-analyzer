@@ -5,7 +5,7 @@
 pub mod parser;
 pub mod vulnerability;
 pub use parser::{
-    check_program_type, parse_toml_in_crate_path, ParsedDependency, ProgramType,
-    SolanaMetadataError,
+    ParsedDependency, ProgramType, SolanaMetadataError, check_program_type,
+    parse_toml_in_crate_path,
 };
 pub use vulnerability::detect_vulnerable_dep;
