@@ -120,7 +120,118 @@ fn demo_analysis() -> ControlFlow<()> {
     //     }
     // }
 
-    fn extract_program_id() -> Option<Vec<u8>> {
+    
+
+    // // let body = entry_fn.unwrap().body().unwrap();
+    // collect all uses of LockGuard
+    // collect all def of LockGuard
+    // for (local_idx, local_decl) in body.local_decls() {
+    //     if let Some(rigid_ty) = local_decl.ty.kind().rigid() {
+    //         // if let AdtDef
+    //         match rigid_ty {
+    //             RigidTy::Adt(adt_def, generic_args) => {
+    //                 println!("Adt: {:?}", adt_def.name());
+    //                 for generic_arg in &generic_args.0 {
+    //                     println!("\t{:?}", generic_arg);
+    //                 }
+    //                 println!("");
+    //             }
+    //             _ => {}
+    //         }
+    //     }
+    // }
+    // for block in body.blocks {
+    //     match block.terminator.kind {
+    //         TerminatorKind::Call { func, args, destination, target, unwind } => {
+    //             match func {
+    //                 Operand::Constant(op) => {
+    //                     // println!("Call {:?}", op.ty().kind().fn_def()),
+    //                     let kind = op.ty().kind();
+    //                     let (def, generic_args) = kind.fn_def().unwrap();
+    //                     println!("def: {:?}", def.name());
+    //                     let instance = Instance::resolve(def, generic_args).unwrap();
+    //                     println!("inst_def: {:?}", instance.def.name());
+    //                 }
+    //                 Operand::Copy(p) | Operand::Move(p) => println!("Call Place {:?}", p),
+    //             }
+    //         }
+    //         _ => {
+    //             println!("{:?}", block.terminator);
+    //         }
+    //     }
+    // }
+    // for item in rustc_public::all_local_items() {
+    //     match item.kind() {
+    //         ItemKind::Fn => {
+    //             println!("Fn {:?}", item);
+    //         },
+    //         ItemKind::Static => {
+    //             println!("Static {:?}", item);
+    //         },
+    //         ItemKind::Const => {
+    //             println!("Const {:?}", item);
+    //         },
+    //         ItemKind::Ctor(ctor_kind) => {
+    //             println!("Ctor {:?}", ctor_kind);
+    //         },
+    //     }
+    // }
+    /*
+    let external_crates = rustc_public::external_crates();
+    for external_crate in external_crates {
+        println!("external {}", external_crate.name);
+        // println!("{:?}", external_crate.foreign_modules());
+        // println!("{:?}", external_crate.fn_defs());
+        println!("{:?}", external_crate.statics());
+    }
+    */
+
+
+    let anchor_accounts_collection = local_anchor_accounts();
+    for anchor_accounts in anchor_accounts_collection {
+        println!("{}", anchor_accounts.name);
+        let mut muts = vec![];
+        for (name, mutability, field_idx) in res.iter() {
+            if name == &anchor_accounts.name {
+                muts.push((field_idx, mutability));
+            }
+        }
+        let mut final_res = vec![];
+        for (idx, anchor_account) in anchor_accounts.anchor_accounts.iter().enumerate() {
+            println!("- {idx}: {:?}", &anchor_account);
+            let mut mu = None;
+            for (field_idx, mutability) in muts.iter() {
+                if *field_idx == &idx {
+                    mu = Some(*mutability);
+                    break;
+                }
+            }
+            println!("- {idx}: {:?} {:?}", mu, &anchor_account);
+            final_res.push((anchor_account, mu));
+        }
+
+        let len = final_res.len();
+        for i in 0..len {
+            for j in i + 1..len {
+                if final_res[i].1 == Some(&"mut") && final_res[j].1 == Some(&"mut") {
+                    match (final_res[i].0.kind.clone(), final_res[j].0.kind.clone()) {
+                        (
+                            AnchorAccountKind::Account(i_struct),
+                            AnchorAccountKind::Account(j_struct),
+                        ) if i_struct == j_struct => {
+                            println!("Find error: two mutable accounts of the same type in the same Context: {:?} {:?}", final_res[i], final_res[j]);
+                        }
+                        _ => {}
+                    }
+                }
+            }
+        }
+    }
+
+    ControlFlow::Continue(())
+}
+
+fn extract_program_id() -> Option<Vec<u8>> {
         let mut program_id = None;
         for item in rustc_public::all_local_items() {
             if !matches!(item.kind(), ItemKind::Static) {
@@ -235,73 +346,6 @@ fn demo_analysis() -> ControlFlow<()> {
         }
         account_discriminators
     }
-
-    // // let body = entry_fn.unwrap().body().unwrap();
-    // collect all uses of LockGuard
-    // collect all def of LockGuard
-    // for (local_idx, local_decl) in body.local_decls() {
-    //     if let Some(rigid_ty) = local_decl.ty.kind().rigid() {
-    //         // if let AdtDef
-    //         match rigid_ty {
-    //             RigidTy::Adt(adt_def, generic_args) => {
-    //                 println!("Adt: {:?}", adt_def.name());
-    //                 for generic_arg in &generic_args.0 {
-    //                     println!("\t{:?}", generic_arg);
-    //                 }
-    //                 println!("");
-    //             }
-    //             _ => {}
-    //         }
-    //     }
-    // }
-    // for block in body.blocks {
-    //     match block.terminator.kind {
-    //         TerminatorKind::Call { func, args, destination, target, unwind } => {
-    //             match func {
-    //                 Operand::Constant(op) => {
-    //                     // println!("Call {:?}", op.ty().kind().fn_def()),
-    //                     let kind = op.ty().kind();
-    //                     let (def, generic_args) = kind.fn_def().unwrap();
-    //                     println!("def: {:?}", def.name());
-    //                     let instance = Instance::resolve(def, generic_args).unwrap();
-    //                     println!("inst_def: {:?}", instance.def.name());
-    //                 }
-    //                 Operand::Copy(p) | Operand::Move(p) => println!("Call Place {:?}", p),
-    //             }
-    //         }
-    //         _ => {
-    //             println!("{:?}", block.terminator);
-    //         }
-    //     }
-    // }
-    // for item in rustc_public::all_local_items() {
-    //     match item.kind() {
-    //         ItemKind::Fn => {
-    //             println!("Fn {:?}", item);
-    //         },
-    //         ItemKind::Static => {
-    //             println!("Static {:?}", item);
-    //         },
-    //         ItemKind::Const => {
-    //             println!("Const {:?}", item);
-    //         },
-    //         ItemKind::Ctor(ctor_kind) => {
-    //             println!("Ctor {:?}", ctor_kind);
-    //         },
-    //     }
-    // }
-    /*
-    let external_crates = rustc_public::external_crates();
-    for external_crate in external_crates {
-        println!("external {}", external_crate.name);
-        // println!("{:?}", external_crate.foreign_modules());
-        // println!("{:?}", external_crate.fn_defs());
-        println!("{:?}", external_crate.statics());
-    }
-    */
-
-    ControlFlow::Continue(())
-}
 
 
 
