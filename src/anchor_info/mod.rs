@@ -315,3 +315,26 @@ pub fn extract_discriminators() -> Vec<(String, Vec<u8>)> {
     }
     account_discriminators
 }
+
+const ENTRY: &str = "entry";
+
+/// Find the entry fn instance for solana program.
+pub fn entry_instance() -> Option<Instance> {
+    let crate_items = rustc_public::all_local_items();
+    let mut entry_fn = None;
+    for crate_item in crate_items {
+        if crate_item.name() != ENTRY {
+            continue;
+        }
+        if crate_item.requires_monomorphization() {
+            continue;
+        }
+        let instance = match Instance::try_from(crate_item) {
+            Ok(instance) => instance,
+            Err(_) => continue,
+        };
+        entry_fn = Some(instance);
+        break;
+    }
+    entry_fn
+}
