@@ -15,6 +15,11 @@ use std::ops::ControlFlow;
 use std::process::ExitCode;
 
 use crate::anchor_info::entry_instance;
+use rustc_public::CompilerError;
+use rustc_public::run;
+use std::ops::ControlFlow;
+use std::process::ExitCode;
+
 use crate::anchor_info::{extract_discriminators, extract_program_id};
 use crate::checker::detect_duplicate_mutable_account;
 
