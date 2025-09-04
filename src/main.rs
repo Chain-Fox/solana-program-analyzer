@@ -6,22 +6,23 @@ extern crate rustc_interface;
 extern crate rustc_middle;
 extern crate rustc_public;
 
+use rustc_public::mir::mono::Instance;
 use rustc_public::mir::Body;
+use rustc_public::mir::TerminatorKind;
+use rustc_public::ty::RigidTy;
+use rustc_public::ty::TyKind;
 use rustc_public::CompilerError;
 use rustc_public::run;
+use rustc_public::ItemKind;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::ops::ControlFlow;
 use std::process::ExitCode;
 
 use crate::anchor_info::entry_instance;
-use rustc_public::CompilerError;
-use rustc_public::run;
-use std::ops::ControlFlow;
-use std::process::ExitCode;
-
 use crate::anchor_info::{extract_discriminators, extract_program_id};
 use crate::checker::detect_duplicate_mutable_account;
+use crate::checker::detect_float_round_fn;
 
 mod analysis;
 mod anchor_info;
@@ -64,7 +65,8 @@ fn demo_analysis() -> ControlFlow<()> {
         println!("{:?}", post_dominators);
     }
 
-    detect_duplicate_mutable_account();
+    detect_float_round_fn();
+    // detect_duplicate_mutable_account();
 
     ControlFlow::Continue(())
 }

@@ -1,4 +1,4 @@
-use crate::anchor_info::{AnchorAccountKind, find_to_account_metas, local_anchor_accounts};
+use crate::{analysis::callgraph, anchor_info::{find_to_account_metas, local_anchor_accounts, AnchorAccountKind}};
 
 pub fn detect_duplicate_mutable_account() {
     let res = find_to_account_metas();
@@ -46,6 +46,20 @@ pub fn detect_duplicate_mutable_account() {
                     }
                 }
             }
+        }
+    }
+}
+
+const F32_ROUND: &'static str = "f32::<impl f32>::round";
+const F64_ROUND: &'static str = "f64::<impl f64>::round";
+
+pub fn detect_float_round_fn() {
+    let instances = callgraph::compute_instances();
+    for instance in instances {
+        let name = instance.name();
+        println!("{name}");
+        if name.contains(F32_ROUND) || name.contains(F64_ROUND) {
+            println!("Contains f32::round or f64::round: {}", name);
         }
     }
 }
