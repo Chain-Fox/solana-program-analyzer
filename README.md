@@ -1,13 +1,5 @@
-Solana Program Analyzer
+## Semantic analysis for Solana program, built for Agents.
 
-A WIP project to detect common solana program vulnerabilities using Rust compiler's public APIs, static analysis, and model checking.
+### Under heavy dev, source code not public for security reasons.
 
-The project is under heavy development.
-
-To test, run
-
-Modify the LD_LIBRARY_PATH to your rustc lib path, then run
-
-```
-$ ./run.sh demos/cfx-stake-core
-```
+### Real-world evaluation is ongoing.
